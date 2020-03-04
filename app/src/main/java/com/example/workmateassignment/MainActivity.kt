@@ -10,36 +10,33 @@ import kotlinx.android.synthetic.main.activity_main.*
 import okhttp3.*
 import org.json.JSONObject
 import java.io.IOException
-import java.text.SimpleDateFormat
-import java.time.LocalDateTime
-import java.time.ZonedDateTime
-import java.util.*
 
 
 class MainActivity : AppCompatActivity() {
 
     private var key = ""
-    private var title = ""
     private lateinit var handler: Handler
     private var clockValue: String? = null
     private var clockInTime = ""
     private var clockOutTime = ""
+    private var contactNumber = ""
+    lateinit var partner: JSONObject
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         key = login("https://api.helpster.tech/v1/auth/login/")
-        title = getTitle("https://api.helpster.tech/v1/staff-requests/26074/")
+        getStaffRequest("https://api.helpster.tech/v1/staff-requests/26074/")
 
         intent?.let {
-                clockValue = it.getStringExtra("ClockValue")
-                clockValue?.let {
-                    if (it.equals("Clocking In...")) {
-                        callClockApi("https://api.helpster.tech/v1/staff-requests/26074/clock-in/")
-                    } else {
-                        callClockApi("https://api.helpster.tech/v1/staff-requests/26074/clock-out/")
-                    }
+            clockValue = it.getStringExtra("ClockValue")
+            clockValue?.let {
+                if (it.equals("Clocking In...")) {
+                    callClockApi("https://api.helpster.tech/v1/staff-requests/26074/clock-in/")
+                } else {
+                    callClockApi("https://api.helpster.tech/v1/staff-requests/26074/clock-out/")
                 }
+            }
         }
 
         btnClock.setOnClickListener {
@@ -81,41 +78,44 @@ class MainActivity : AppCompatActivity() {
             override fun onResponse(call: Call, response: Response) {
                 val resp = response.body()!!.string()
 
+                if (response.code() != 400) {
+                    val jsonObject = JSONObject(resp)
 
-                    if(response.code()!=400) {
-                        val jsonObject = JSONObject(resp)
-                        if (jsonObject.has("timesheet")) {
-                            val jObj = jsonObject.get("timesheet")
-                            if(jObj is JSONObject) {
-                                clockInTime = jObj.getString("clock_in_time")
-                                clockOutTime = jObj.getString("clock_out_time")
-                            } else {
-                                clockInTime = jsonObject.getString("clock_in_time")
-                            }
+                    if (jsonObject.has("timesheet")) {
+                        val jObj = jsonObject.get("timesheet")
+                        if (jObj is JSONObject) {
+                            clockInTime = jObj.getString("clock_in_time")
+                            clockOutTime = jObj.getString("clock_out_time")
+                            partner = jObj.getJSONObject("partner")
+                        } else {
+                            clockInTime = jsonObject.getString("clock_in_time")
+                            partner = jsonObject.getJSONObject("partner")
                         }
                     }
+                    contactNumber = partner.getString("mobile")
+                }
+                handler.post(Runnable {
+                    if (clockInTime.isNotEmpty()) {
+                        val clockInArray = clockInTime.split("T")
+                        val res = clockInArray[1].split(".")
+                        clockInTime = res[0]
+                    }
+                    if (clockOutTime.isNotEmpty()) {
+                        val clockOutArray = clockOutTime.split("T")
+                        val res2 = clockOutArray[1].split(".")
+                        clockOutTime = res2[0]
+                    }
 
-                    handler.post(Runnable {
-                        if(clockInTime.isNotEmpty()) {
-                            val clockInArray = clockInTime.split("T")
-                            val res = clockInArray[1].split(".")
-                            clockInTime = res[0]
-                        }
-                        if(clockOutTime.isNotEmpty()) {
-                            val clockOutArray = clockOutTime.split("T")
-                            val res2 = clockOutArray[1].split(".")
-                            clockOutTime = res2[0]
-                        }
-
-                        textViewClockIn.text = clockInTime
-                        textViewClockOut.text = clockOutTime
-                        if(!clockInTime.equals("") && !clockOutTime.equals("")) {
-                            btnClock.visibility = View.GONE
-                        } else {
-                            btnClock.text = "Clock Out"
-                            btnClock.visibility = View.VISIBLE
-                        }
-                    })
+                    textViewContactNumber.text = contactNumber
+                    textViewClockIn.text = clockInTime
+                    textViewClockOut.text = clockOutTime
+                    if (!clockInTime.equals("") && !clockOutTime.equals("")) {
+                        btnClock.visibility = View.GONE
+                    } else {
+                        btnClock.text = "Clock Out"
+                        btnClock.visibility = View.VISIBLE
+                    }
+                })
 
             }
         })
@@ -148,9 +148,7 @@ class MainActivity : AppCompatActivity() {
         return key
     }
 
-    fun getTitle(url: String): String {
-
-        var title = ""
+    fun getStaffRequest(url: String) {
 
         val httpBuilder = HttpUrl.parse(url)?.newBuilder()
         httpBuilder?.addQueryParameter("token ", key)
@@ -166,12 +164,23 @@ class MainActivity : AppCompatActivity() {
                 val res = response.body()!!.string()
                 val jsonObject = JSONObject(res)
                 handler = Handler(Looper.getMainLooper())
-                title = jsonObject.getString("title")
+                val client = jsonObject.getJSONObject("client")
+                val position = jsonObject.getJSONObject("position")
+                val wageAmount = jsonObject.getString("wage_amount")
+                val wageType = jsonObject.getString("wage_type")
+                val name = client.getString("name")
+                val title = position.getString("name")
+                val location = jsonObject.getJSONObject("location")
+                val address = location.getJSONObject("address")
+                val street = address.getString("street_1")
                 handler.post(Runnable {
+                    textView3.text = name
+                    textViewWageAmount.text = wageAmount
+                    textViewWageType.text = wageType
                     textView1.text = title
+                    textViewStreet.text = street
                 })
             }
         })
-        return title
     }
 }
