@@ -24,12 +24,14 @@
         android:layout_centerInParent="true"
         android:layout_marginLeft="50dp"
         android:layout_marginRight="50dp"
-        style="@style/Widget.AppCompat.ProgressBar.Horizontal"
+        style="?android:attr/progressBarStyleHorizontal"
         android:progress="1"
         android:max="10"
+        android:progressDrawable="@drawable/grey_progress"
         android:indeterminate="false"/>
 
     <TextView
+        android:id="@+id/textClockCancel"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Cancel"

@@ -10,6 +10,10 @@ import kotlinx.android.synthetic.main.activity_main.*
 import okhttp3.*
 import org.json.JSONObject
 import java.io.IOException
+import java.text.SimpleDateFormat
+import java.time.LocalDateTime
+import java.time.ZonedDateTime
+import java.util.*
 
 
 class MainActivity : AppCompatActivity() {
@@ -18,6 +22,8 @@ class MainActivity : AppCompatActivity() {
     private var title = ""
     private lateinit var handler: Handler
     private var clockValue: String? = null
+    private var clockInTime = ""
+    private var clockOutTime = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -26,16 +32,14 @@ class MainActivity : AppCompatActivity() {
         title = getTitle("https://api.helpster.tech/v1/staff-requests/26074/")
 
         intent?.let {
-            clockValue = it.getStringExtra("ClockValue")
-            clockValue?.let {
-                if (it.equals("Clocking In...")) {
-                    callClockApi("https://api.helpster.tech/v1/staff-requests/26074/clock-in/")
+                clockValue = it.getStringExtra("ClockValue")
+                clockValue?.let {
+                    if (it.equals("Clocking In...")) {
+                        callClockApi("https://api.helpster.tech/v1/staff-requests/26074/clock-in/")
+                    } else {
+                        callClockApi("https://api.helpster.tech/v1/staff-requests/26074/clock-out/")
+                    }
                 }
-                else {
-                    callClockApi("https://api.helpster.tech/v1/staff-requests/26074/clock-out/")
-                }
-            }
-
         }
 
         btnClock.setOnClickListener {
@@ -76,22 +80,33 @@ class MainActivity : AppCompatActivity() {
 
             override fun onResponse(call: Call, response: Response) {
                 val resp = response.body()!!.string()
-                var clockInTime = ""
-                var clockOutTime = ""
+
 
                     if(response.code()!=400) {
                         val jsonObject = JSONObject(resp)
                         if (jsonObject.has("timesheet")) {
-                            val jObj = jsonObject.getJSONObject("timesheet")
-                            clockInTime = jObj.getString("clock_in_time")
-                            clockOutTime = jObj.getString("clock_out_time")
-                        } else {
-                            val jsonObj = JSONObject(resp)
-                            clockInTime = jsonObj.getString("clock_in_time")
+                            val jObj = jsonObject.get("timesheet")
+                            if(jObj is JSONObject) {
+                                clockInTime = jObj.getString("clock_in_time")
+                                clockOutTime = jObj.getString("clock_out_time")
+                            } else {
+                                clockInTime = jsonObject.getString("clock_in_time")
+                            }
                         }
                     }
 
                     handler.post(Runnable {
+                        if(clockInTime.isNotEmpty()) {
+                            val clockInArray = clockInTime.split("T")
+                            val res = clockInArray[1].split(".")
+                            clockInTime = res[0]
+                        }
+                        if(clockOutTime.isNotEmpty()) {
+                            val clockOutArray = clockOutTime.split("T")
+                            val res2 = clockOutArray[1].split(".")
+                            clockOutTime = res2[0]
+                        }
+
                         textViewClockIn.text = clockInTime
                         textViewClockOut.text = clockOutTime
                         if(!clockInTime.equals("") && !clockOutTime.equals("")) {
